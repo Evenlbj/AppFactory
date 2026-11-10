@@ -1,0 +1,23 @@
+name: app-factory
+
+services:
+  # --- PAGE WEB / PORTAIL SEUL (CONNECTÉ À LA BDD EXTERNE) ---
+  web:
+    build:
+      context: ./portal
+      dockerfile: Dockerfile
+    image: appfactory-portal:latest
+    container_name: app_factory_web
+    restart: unless-stopped
+    ports:
+      - "5000:5000"
+    environment:
+      - DB_HOST=app_factory_db          # Nom du conteneur MariaDB externe (ou 'db' ou 'host.docker.internal')
+      - DB_PORT=3306
+      - DB_USER=factory_user
+      - DB_PASSWORD=user_password_factory
+      - DB_NAME=app_factory_db
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
