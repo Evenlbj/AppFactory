@@ -1,0 +1,474 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>App Factory - Déploiement Docker</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg: #e8edf0;
+  --surf: #fff;
+  --ink: #12303b;
+  --mute: #5d7480;
+  --line: #c9d5db;
+  --acc: #1f5f7a;
+  --acc-ink: #fff;
+  --sig: #f2b705;
+  --ok: #1e7a4d;
+  --warn: #a86b00;
+  --bad: #b3261e;
+  box-sizing: border-box;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #101c22;
+    --surf: #18272f;
+    --ink: #e6eef2;
+    --mute: #8fa6b2;
+    --line: #2c414c;
+    --acc: #6bb8d6;
+    --acc-ink: #06222e;
+    --ok: #5fd39a;
+    --warn: #f2b705;
+    --bad: #ff8a80;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #101c22;
+  --surf: #18272f;
+  --ink: #e6eef2;
+  --mute: #8fa6b2;
+  --line: #2c414c;
+  --acc: #6bb8d6;
+  --acc-ink: #06222e;
+  --ok: #5fd39a;
+  --warn: #f2b705;
+  --bad: #ff8a80;
+}
+*, *::before, *::after { box-sizing: inherit; }
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--ink);
+  font-family: "Bricolage Grotesque", system-ui, -apple-system, sans-serif;
+  line-height: 1.5;
+}
+header {
+  display: flex;
+  align-items: center;
+  gap: .75rem;
+  padding: 1rem 1.5rem;
+  border-bottom: 1px solid var(--line);
+  background: var(--surf);
+}
+.logo { display: grid; grid-template-columns: repeat(3, 10px); gap: 3px; }
+.logo i { height: 10px; background: var(--acc); border-radius: 2px; }
+.logo i:nth-child(2) { background: var(--sig); }
+header h1 { font-size: 1.15rem; margin: 0; font-weight: 700; }
+header .status-badge {
+  margin-left: auto;
+  font-size: .85rem;
+  color: var(--mute);
+  display: flex;
+  align-items: center;
+  gap: .4rem;
+}
+.dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--ok);
+  display: inline-block;
+}
+.dot.busy { background: var(--sig); animation: pulse 1s infinite alternate; }
+.dot.err { background: var(--bad); }
+@keyframes pulse { from { opacity: .4; } to { opacity: 1; } }
+
+main {
+  max-width: 1100px;
+  margin: 0 auto;
+  padding: 1.5rem;
+  display: grid;
+  gap: 2rem;
+}
+h2 { font-size: 1.35rem; margin: 0 0 .25rem; }
+p.sub { margin: 0 0 1rem; color: var(--mute); max-width: 70ch; }
+
+.catalog {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 1rem;
+}
+.app-card {
+  all: unset;
+  cursor: pointer;
+  background: var(--surf);
+  border: 2px solid var(--line);
+  padding: 1.1rem;
+  border-radius: 8px;
+  display: flex;
+  flex-direction: column;
+  transition: border-color .15s ease, transform .1s ease;
+}
+.app-card:hover {
+  border-color: var(--acc);
+  transform: translateY(-1px);
+}
+.app-card:focus-visible {
+  outline: 3px solid var(--sig);
+  outline-offset: 2px;
+}
+.app-card b { font-size: 1.1rem; margin-bottom: .25rem; }
+.app-card small { color: var(--mute); margin-bottom: .75rem; flex-grow: 1; }
+.image-tag {
+  display: inline-block;
+  font-family: monospace;
+  font-size: .78rem;
+  background: var(--bg);
+  border: 1px solid var(--line);
+  padding: .2rem .5rem;
+  border-radius: 4px;
+  color: var(--ink);
+  margin-bottom: .9rem;
+}
+.btn-deploy {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--acc-ink);
+  background: var(--acc);
+  padding: .5rem .8rem;
+  border-radius: 4px;
+  font-weight: 700;
+  font-size: .85rem;
+}
+.app-card:disabled {
+  opacity: .5;
+  cursor: not-allowed;
+}
+
+.scroll {
+  overflow-x: auto;
+  background: var(--surf);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+}
+table { width: 100%; border-collapse: collapse; min-width: 750px; }
+th, td {
+  text-align: left;
+  padding: .75rem 1rem;
+  border-bottom: 1px solid var(--line);
+  font-size: .92rem;
+}
+th { font-weight: 500; color: var(--mute); }
+tr:last-child td { border-bottom: 0; }
+
+.st { font-weight: 700; }
+.st.ok { color: var(--ok); }
+.st.wait { color: var(--warn); }
+.st.off { color: var(--mute); }
+
+td a.direct-link {
+  display: inline-flex;
+  align-items: center;
+  gap: .3rem;
+  color: var(--acc);
+  font-weight: 700;
+  text-decoration: none;
+  background: var(--bg);
+  border: 1px solid var(--line);
+  padding: .25rem .6rem;
+  border-radius: 4px;
+  font-family: monospace;
+  font-size: .85rem;
+}
+td a.direct-link:hover {
+  text-decoration: underline;
+  border-color: var(--acc);
+}
+
+td button {
+  font: inherit;
+  font-size: .82rem;
+  background: var(--bg);
+  border: 1px solid var(--line);
+  color: var(--ink);
+  border-radius: 4px;
+  padding: .3rem .6rem;
+  cursor: pointer;
+  margin-right: .3rem;
+  transition: all .15s ease;
+}
+td button:hover { border-color: var(--mute); }
+td button.del { color: var(--bad); }
+td button.del:hover { border-color: var(--bad); background: rgba(179,38,30,.08); }
+td button:disabled { opacity: .4; cursor: not-allowed; }
+
+.empty { padding: 2.5rem; color: var(--mute); text-align: center; }
+
+/* Modal des logs */
+.modal-overlay {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, .55);
+  backdrop-filter: blur(2px);
+  z-index: 1000;
+  align-items: center;
+  justify-content: center;
+  padding: 1.5rem;
+}
+.modal-overlay.open { display: flex; }
+.modal {
+  background: var(--surf);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  width: 100%;
+  max-width: 750px;
+  max-height: 80vh;
+  display: flex;
+  flex-direction: column;
+}
+.modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: .9rem 1.2rem;
+  border-bottom: 1px solid var(--line);
+}
+.modal-header h3 { margin: 0; font-size: 1.05rem; }
+.modal-header button {
+  background: none;
+  border: 0;
+  font-size: 1.2rem;
+  cursor: pointer;
+  color: var(--mute);
+}
+.modal-body {
+  padding: 1rem 1.2rem;
+  overflow-y: auto;
+  font-family: monospace;
+  font-size: .82rem;
+  white-space: pre-wrap;
+  word-break: break-all;
+  background: #0d161a;
+  color: #c9e4ed;
+  flex-grow: 1;
+}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo" aria-hidden="true"><i></i><i></i><i></i></div>
+  <h1>App Factory</h1>
+  <div class="status-badge">
+    <span class="dot" id="status-dot"></span>
+    <span id="sync-text">Connecté à MariaDB</span>
+  </div>
+</header>
+
+<main>
+  <section>
+    <h2>Catalogue d'images (MariaDB)</h2>
+    <p class="sub">Les images ci-dessous sont lues en direct depuis votre table <code>applications</code> dans MariaDB. Cliquez sur <strong>Déployer</strong> pour lancer un conteneur accessible sur son propre port local.</p>
+    <div class="catalog" id="catalog">
+      <div style="color:var(--mute)">Chargement des images depuis MariaDB...</div>
+    </div>
+  </section>
+
+  <section>
+    <h2>Mes déploiements</h2>
+    <div class="scroll">
+      <table>
+        <thead>
+          <tr>
+            <th>Nom</th>
+            <th>Image Docker</th>
+            <th>Adresse directe</th>
+            <th>Ressources</th>
+            <th>État</th>
+            <th>Actions</th>
+          </tr>
+        </thead>
+        <tbody id="rows"></tbody>
+      </table>
+      <div class="empty" id="empty">Aucun conteneur en cours. Cliquez sur une image ci-dessus pour la démarrer.</div>
+    </div>
+  </section>
+</main>
+
+<div class="modal-overlay" id="logs-modal">
+  <div class="modal">
+    <div class="modal-header">
+      <h3 id="logs-title">Logs du conteneur</h3>
+      <button id="logs-close" aria-label="Fermer">&times;</button>
+    </div>
+    <div class="modal-body" id="logs-content">Chargement des logs...</div>
+  </div>
+</div>
+
+<script>
+const $ = id => document.getElementById(id);
+const LABELS = { ok: "En marche", wait: "Démarrage…", off: "Arrêté" };
+let deployments = [];
+let isActionPending = false;
+
+// 1. Récupération dynamique des images depuis MariaDB
+async function fetchCatalog() {
+  try {
+    const res = await fetch("/api/catalog");
+    if (!res.ok) throw new Error("HTTP " + res.status);
+    const data = await res.json();
+    const apps = data.catalog || [];
+    
+    if (apps.length === 0) {
+      $("catalog").innerHTML = `<div style="color:var(--mute)">Aucune image dans la table applications de MariaDB.</div>`;
+      return;
+    }
+
+    $("catalog").innerHTML = apps.map(app => `
+      <button class="app-card" data-id="${escapeHtml(app.id)}">
+        <b>${escapeHtml(app.name)}</b>
+        <small>${escapeHtml(app.description)}</small>
+        <span class="image-tag">🐳 ${escapeHtml(app.docker_image)}</span>
+        <span class="btn-deploy">Déployer sur le Mac</span>
+      </button>
+    `).join("");
+  } catch (err) {
+    $("catalog").innerHTML = `<div style="color:var(--bad)">Erreur de chargement MariaDB : ${escapeHtml(err.message)}</div>`;
+  }
+}
+
+// 2. Synchronisation des conteneurs actifs (toutes les 4 secondes)
+async function fetchDeployments() {
+  if (isActionPending) return;
+  try {
+    const res = await fetch("/api/deployments");
+    if (!res.ok) throw new Error("HTTP " + res.status);
+    const data = await res.json();
+    deployments = data.deployments || [];
+    render();
+    $("status-dot").className = "dot";
+    $("sync-text").textContent = "MariaDB & Docker synchronisés";
+  } catch (err) {
+    $("status-dot").className = "dot err";
+    $("sync-text").textContent = "Déconnecté";
+  }
+}
+
+function render() {
+  $("empty").hidden = deployments.length > 0;
+  $("rows").innerHTML = deployments.map(d => `
+    <tr>
+      <td><strong>${escapeHtml(d.slug)}</strong></td>
+      <td><code>${escapeHtml(d.docker_image || "")}</code></td>
+      <td>
+        <a class="direct-link" href="${escapeHtml(d.url)}" target="_blank" rel="noopener">
+          🔗 localhost:${d.host_port}
+        </a>
+      </td>
+      <td>1 vCPU, 512 Mo</td>
+      <td class="st ${d.st}">${LABELS[d.st] || d.st}</td>
+      <td>
+        <button data-act="toggle" data-slug="${d.slug}">${d.st === "off" ? "Démarrer" : "Arrêter"}</button>
+        <button data-act="logs" data-slug="${d.slug}">Logs</button>
+        <button class="del" data-act="delete" data-slug="${d.slug}">Supprimer</button>
+      </td>
+    </tr>
+  `).join("");
+}
+
+function escapeHtml(str) {
+  return String(str || "").replace(/[&<>"']/g, s => ({
+    '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+  }[s]));
+}
+
+// 3. Déploiement d'un conteneur
+$("catalog").addEventListener("click", async e => {
+  const card = e.target.closest(".app-card");
+  if (!card) return;
+  const appId = card.dataset.id;
+
+  card.disabled = true;
+  $("status-dot").className = "dot busy";
+  $("sync-text").textContent = "Création du conteneur Docker...";
+  isActionPending = true;
+
+  try {
+    const res = await fetch("/api/deployments", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ app_id: appId })
+    });
+    const result = await res.json();
+    if (!res.ok) throw new Error(result.error || "Erreur de création");
+    await fetchDeployments();
+  } catch (err) {
+    alert("Erreur lors du déploiement : " + err.message);
+  } finally {
+    card.disabled = false;
+    isActionPending = false;
+    fetchDeployments();
+  }
+});
+
+// 4. Actions (Arrêt / Marche, Suppression, Logs)
+$("rows").addEventListener("click", async e => {
+  const btn = e.target.closest("button");
+  if (!btn) return;
+  const act = btn.dataset.act;
+  const slug = btn.dataset.slug;
+
+  if (act === "toggle") {
+    btn.disabled = true;
+    try {
+      await fetch(`/api/deployments/${slug}/toggle`, { method: "POST" });
+      await fetchDeployments();
+    } catch (err) {
+      alert("Erreur lors du changement d'état : " + err.message);
+    } finally {
+      btn.disabled = false;
+    }
+  } else if (act === "delete") {
+    if (!confirm(`Supprimer définitivement le conteneur "${slug}" ?`)) return;
+    btn.disabled = true;
+    try {
+      await fetch(`/api/deployments/${slug}`, { method: "DELETE" });
+      await fetchDeployments();
+    } catch (err) {
+      alert("Erreur lors de la suppression : " + err.message);
+    }
+  } else if (act === "logs") {
+    showLogs(slug);
+  }
+});
+
+// 5. Affichage des logs Docker
+async function showLogs(slug) {
+  $("logs-title").textContent = `Logs du conteneur : ${slug}`;
+  $("logs-content").textContent = "Chargement des logs...";
+  $("logs-modal").classList.add("open");
+  try {
+    const res = await fetch(`/api/deployments/${slug}/logs`);
+    const data = await res.json();
+    $("logs-content").textContent = data.logs || "(Aucun log enregistré)";
+  } catch (err) {
+    $("logs-content").textContent = "Erreur : " + err.message;
+  }
+}
+$("logs-close").addEventListener("click", () => $("logs-modal").classList.remove("open"));
+$("logs-modal").addEventListener("click", e => {
+  if (e.target === $("logs-modal")) $("logs-modal").classList.remove("open");
+});
+
+// Lancement initial
+fetchCatalog();
+fetchDeployments();
+setInterval(fetchDeployments, 4000);
+</script>
+</body>
+</html>
